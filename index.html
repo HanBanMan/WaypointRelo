@@ -34,7 +34,7 @@
 <body class="h-full text-slate-100 font-sans flex flex-col">
 
     <script>
-        // Global State containing default preset and editable variables
+        // Global State containing default presets and editable variables
         const PRESETS = {
             tinker_to_jbab: {
                 id: "tinker_to_jbab",
@@ -46,13 +46,13 @@
                 budgetCap: 2500,
                 schoolCutoffMonth: 9,
                 schoolCutoffDay: 30,
-                husbandStart: "06:00",
+                branch: "Navy",
                 children: [
                     { id: 1, name: "Your Daughter (Girl)", dob: "2022-01-19", customNote: "Meets 4-by-Sept-30 cutoff. Fully qualifies for free, full-day public PK4 in Washington D.C." },
                     { id: 2, name: "Your Son (Boy)", dob: "2023-05-20", customNote: "Meets 3-by-Sept-30 cutoff. Fully qualifies for free, full-day public PK3 in Washington D.C." }
                 ],
                 commutes: [
-                    { id: 1, name: "Navy Yard NFCU / Base", distance: "3.5 miles", time: "8 - 12 mins", note: "Straight shot over South Capitol St Bridge. Low stress, matches husband's drop-off." },
+                    { id: 1, name: "Navy Yard NFCU / Base", distance: "3.5 miles", time: "8 - 12 mins", note: "Straight shot over South Capitol St Bridge. Low stress, matches drop-off coordinates." },
                     { id: 2, name: "Crystal City NFCU (VA)", distance: "6.2 miles", time: "12 - 18 mins", note: "Split-commute across the Potomac. Requires coordination." },
                     { id: 3, name: "Hybla Valley NFCU (Alexandria)", distance: "11.4 miles", time: "18 - 26 mins", note: "High commute strain. Direct bottleneck at the Woodrow Wilson Bridge." }
                 ],
@@ -61,36 +61,13 @@
                     { id: 2, name: "Leckie Education Campus", type: "Zoned Public (DCPS)", hours: "8:45 AM - 3:15 PM", notes: "Guaranteed right-to-attend for K+. Dedicated school bus picks up inside base housing." },
                     { id: 3, name: "JBAB Child Development Center", type: "Subsidized Military Care", hours: "6:00 AM - 6:00 PM", notes: "Great fallback for early 06:00 shifts, but high waitlists. Sign up early on MilitaryChildCare.com." }
                 ]
-            },
-            ramstein_to_sandiego: {
-                id: "ramstein_to_sandiego",
-                title: "Ramstein AB to San Diego",
-                origin: "Ramstein AB, Germany",
-                destination: "Naval Base San Diego, CA",
-                pcsDate: "2026-07-10",
-                settleDate: "2026-08-15",
-                budgetCap: 3200,
-                schoolCutoffMonth: 9,
-                schoolCutoffDay: 1,
-                husbandStart: "07:30",
-                children: [
-                    { id: 1, name: "Older Child", dob: "2021-05-15", customNote: "Eligible for Transitional Kindergarten (TK) in California public schools." },
-                    { id: 2, name: "Younger Child", dob: "2023-11-10", customNote: "Too young for public preschool; will require subsidized Navy CDC or off-base daycare." }
-                ],
-                commutes: [
-                    { id: 1, name: "Naval Base Wet Side", distance: "2.1 miles", time: "5 - 10 mins", note: "Extremely close if living in Chollas Heights military housing." },
-                    { id: 2, name: "NFCU Mission Valley Branch", distance: "8.5 miles", time: "15 - 25 mins", note: "Straight drive up Interstate 15. Commute is heavy during peak rush hours." }
-                ],
-                schools: [
-                    { id: 1, name: "Silver Strand Elementary", type: "Coronado Unified", hours: "8:10 AM - 2:40 PM", notes: "Highly rated military-connected school; requires inter-district transfer if living off-base." },
-                    { id: 2, name: "Murphy Canyon Head Start", type: "On-Base Subsidized", hours: "8:00 AM - 2:30 PM", notes: "Income-capped and priority placement for junior enlisted families." }
-                ]
             }
         };
 
-        // Current Active Application State
+        // Active State with Onboarding variables
         let appState = {
-            activeTab: "planner", // planner, customizer, publish
+            onboardingComplete: false,
+            onboardingStep: 1,
             selectedPreset: "tinker_to_jbab",
             origin: "",
             destination: "",
@@ -99,7 +76,7 @@
             budgetCap: 2500,
             schoolCutoffMonth: 9,
             schoolCutoffDay: 30,
-            husbandStart: "06:00",
+            branch: "None", // default to None, changed in onboarding
             children: [],
             commutes: [],
             schools: [],
@@ -107,26 +84,655 @@
             targetSchoolYear: 2026
         };
 
-        // Initialize App State with default preset
-        function loadPreset(presetKey) {
-            const p = PRESETS[presetKey];
-            appState.selectedPreset = presetKey;
-            appState.origin = p.origin;
-            appState.destination = p.destination;
-            appState.pcsDate = p.pcsDate;
-            appState.settleDate = p.settleDate;
-            appState.budgetCap = p.budgetCap;
-            appState.schoolCutoffMonth = p.schoolCutoffMonth;
-            appState.schoolCutoffDay = p.schoolCutoffDay;
-            appState.husbandStart = p.husbandStart || "06:00";
-            appState.children = JSON.parse(JSON.stringify(p.children));
-            appState.commutes = JSON.parse(JSON.stringify(p.commutes));
-            appState.schools = JSON.parse(JSON.stringify(p.schools));
-            appState.selectedCommuteId = p.commutes[0]?.id || 1;
+        // Onboarding Temp Wizard State
+        let wizardData = {
+            destination: "",
+            branch: "None",
+            origin: "",
+            pcsDate: ""
+        };
+
+        // Initial setup on window load
+        window.onload = function() {
+            // Pre-seed wizard with defaults in case user skips or just clicks through
+            wizardData.destination = "JBAB (Joint Base Anacostia-Bolling), D.C.";
+            wizardData.origin = "Tinker AFB, OK";
+            wizardData.pcsDate = "2026-09-15";
+            wizardData.branch = "Navy";
+
+            // Map inputs to wizard text fields
+            document.getElementById("wiz-dest").value = wizardData.destination;
+            document.getElementById("wiz-origin").value = wizardData.origin;
+            document.getElementById("wiz-date").value = wizardData.pcsDate;
+
+            // Display current onboarding step
+            renderOnboardingStep();
+        };
+    </script>
+
+    <!-- ONBOARDING WIZARD SCREEN -->
+    <div id="onboarding-screen" class="fixed inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center p-4">
+        <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-950/40 via-slate-950 to-slate-950 -z-10"></div>
+        
+        <!-- Wizard Card Container -->
+        <div class="max-w-xl w-full bg-slate-900/80 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl relative overflow-hidden backdrop-blur-xl">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl"></div>
             
-            // Sync customizer inputs
+            <!-- Branding Header inside Wizard -->
+            <div class="flex items-center gap-3 mb-8 justify-center">
+                <div class="h-10 w-10 bg-gradient-to-tr from-indigo-500 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg">
+                    <i class="fa-solid fa-house-chimney text-lg text-white"></i>
+                </div>
+                <h1 class="text-2xl font-extrabold tracking-tight text-white">NextBase</h1>
+            </div>
+
+            <!-- Progress Indicators -->
+            <div class="flex gap-2 mb-8 justify-center">
+                <div id="dot-1" class="h-1.5 w-10 rounded-full transition-all duration-300"></div>
+                <div id="dot-2" class="h-1.5 w-10 rounded-full transition-all duration-300"></div>
+                <div id="dot-3" class="h-1.5 w-10 rounded-full transition-all duration-300"></div>
+                <div id="dot-4" class="h-1.5 w-10 rounded-full transition-all duration-300"></div>
+            </div>
+
+            <!-- STEP 1: Destination -->
+            <div id="step-pane-1" class="space-y-4">
+                <div class="text-center space-y-2">
+                    <h2 class="text-xl md:text-2xl font-extrabold text-white">Where are you moving to next?</h2>
+                    <p class="text-xs text-slate-400">Your target city, base, state, or neighborhood.</p>
+                </div>
+                <div class="relative mt-4">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
+                        <i class="fa-solid fa-map-pin"></i>
+                    </span>
+                    <input type="text" id="wiz-dest" oninput="wizardData.destination = this.value" class="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none placeholder-slate-600" placeholder="e.g. JBAB, Washington D.C., San Diego, CA">
+                </div>
+                <button onclick="nextStep(2)" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-sm py-3 px-4 rounded-xl transition-all shadow flex items-center justify-center gap-2">
+                    Continue <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+
+            <!-- STEP 2: Branch of Service -->
+            <div id="step-pane-2" class="hidden space-y-4">
+                <div class="text-center space-y-2">
+                    <h2 class="text-xl md:text-2xl font-extrabold text-white">What branch of service are you in?</h2>
+                    <p class="text-xs text-slate-400">This helps us pre-configure military school priority and housing options.</p>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mt-4">
+                    <button onclick="selectBranch('Navy')" class="branch-btn py-3 px-4 rounded-xl border text-xs font-bold transition-all text-slate-300 bg-slate-950 border-slate-800 hover:border-slate-700 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-anchor text-blue-400"></i> Navy
+                    </button>
+                    <button onclick="selectBranch('Air Force')" class="branch-btn py-3 px-4 rounded-xl border text-xs font-bold transition-all text-slate-300 bg-slate-950 border-slate-800 hover:border-slate-700 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-plane text-sky-400"></i> Air Force
+                    </button>
+                    <button onclick="selectBranch('Army')" class="branch-btn py-3 px-4 rounded-xl border text-xs font-bold transition-all text-slate-300 bg-slate-950 border-slate-800 hover:border-slate-700 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-person-military-pointing text-emerald-400"></i> Army
+                    </button>
+                    <button onclick="selectBranch('Marine Corps')" class="branch-btn py-3 px-4 rounded-xl border text-xs font-bold transition-all text-slate-300 bg-slate-950 border-slate-800 hover:border-slate-700 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-bullseye text-red-400"></i> Marine Corps
+                    </button>
+                    <button onclick="selectBranch('Space Force')" class="branch-btn py-3 px-4 rounded-xl border text-xs font-bold transition-all text-slate-300 bg-slate-950 border-slate-800 hover:border-slate-700 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-user-astronaut text-purple-400"></i> Space Force
+                    </button>
+                    <button onclick="selectBranch('Coast Guard')" class="branch-btn py-3 px-4 rounded-xl border text-xs font-bold transition-all text-slate-300 bg-slate-950 border-slate-800 hover:border-slate-700 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-ship text-teal-400"></i> Coast Guard
+                    </button>
+                </div>
+                <div class="border-t border-slate-800 pt-3 mt-4">
+                    <button onclick="selectBranch('None')" class="branch-btn w-full py-3 px-4 rounded-xl border text-xs font-bold transition-all text-slate-300 bg-slate-950 border-slate-800 hover:border-indigo-500 hover:text-indigo-400 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-house-user text-amber-400"></i> None / Civilian Relocation
+                    </button>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="nextStep(1)" class="w-1/3 bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-400 font-bold text-xs py-3 rounded-xl transition-all">
+                        Back
+                    </button>
+                    <button id="branch-next-btn" onclick="nextStep(3)" class="w-2/3 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs py-3 rounded-xl transition-all flex items-center justify-center gap-2">
+                        Continue <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- STEP 3: Current Station / Origin -->
+            <div id="step-pane-3" class="hidden space-y-4">
+                <div class="text-center space-y-2">
+                    <h2 id="wiz-origin-label" class="text-xl md:text-2xl font-extrabold text-white">Where are you currently stationed?</h2>
+                    <p class="text-xs text-slate-400 font-normal">Or the city/location you are moving from.</p>
+                </div>
+                <div class="relative mt-4">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
+                        <i class="fa-solid fa-plane-departure"></i>
+                    </span>
+                    <input type="text" id="wiz-origin" oninput="wizardData.origin = this.value" class="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none placeholder-slate-600" placeholder="e.g. Tinker AFB, OK, Dallas, TX">
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="nextStep(2)" class="w-1/3 bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-400 font-bold text-xs py-3 rounded-xl transition-all">
+                        Back
+                    </button>
+                    <button onclick="nextStep(4)" class="w-2/3 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs py-3 rounded-xl transition-all flex items-center justify-center gap-2">
+                        Continue <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- STEP 4: projected move date -->
+            <div id="step-pane-4" class="hidden space-y-4">
+                <div class="text-center space-y-2">
+                    <h2 id="wiz-date-label" class="text-xl md:text-2xl font-extrabold text-white">When are you projected to move?</h2>
+                    <p class="text-xs text-slate-400 font-normal">Your estimated PCS departure or moving date.</p>
+                </div>
+                <div class="relative mt-4">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
+                        <i class="fa-solid fa-calendar-alt"></i>
+                    </span>
+                    <input type="date" id="wiz-date" oninput="wizardData.pcsDate = this.value" class="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="nextStep(3)" class="w-1/3 bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-400 font-bold text-xs py-3 rounded-xl transition-all">
+                        Back
+                    </button>
+                    <button onclick="finishOnboarding()" class="w-2/3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20">
+                        Generate Dashboard <i class="fa-solid fa-circle-check"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-8 text-center text-[10px] text-slate-500">
+                You can change all values at any point inside the system.
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP CONTAINER (Initially hidden until onboarding completes) -->
+    <div id="main-application-dashboard" class="hidden min-h-full flex flex-col flex-1">
+        
+        <!-- Header Area -->
+        <header class="border-b border-slate-800 bg-slate-950/90 backdrop-blur sticky top-0 z-50 px-4 py-4 md:px-6 shadow-md">
+            <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="h-10 w-10 bg-gradient-to-tr from-indigo-500 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                        <i class="fa-solid fa-house-chimney text-lg text-white"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-extrabold tracking-tight text-white flex items-center gap-2">
+                            NextBase <span class="text-indigo-400 text-xs font-semibold px-2 py-0.5 bg-indigo-950/50 border border-indigo-800/40 rounded-full">Global Relocation & School Planner</span>
+                        </h1>
+                        <p class="text-xs text-slate-400">Designed to map out schools, commutes, and budgets for your next home base.</p>
+                    </div>
+                </div>
+
+                <!-- Preset / Affiliation Ribbon -->
+                <div class="flex items-center gap-2 bg-slate-900/60 border border-slate-800 p-1 rounded-xl w-fit self-start md:self-auto text-xs px-3 py-1.5">
+                    <span id="header-branch-icon" class="text-indigo-400"><i class="fa-solid fa-shield-halved"></i></span>
+                    <span id="header-affiliation-lbl" class="font-bold text-slate-200">Affiliation: None</span>
+                    <button onclick="resetOnboarding()" class="ml-3 text-[10px] bg-slate-800 hover:bg-slate-750 border border-slate-700 px-2 py-0.5 rounded text-slate-400 hover:text-white transition-all">
+                        <i class="fa-solid fa-rotate-left"></i> Reset
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Dynamic Workspace -->
+        <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 flex flex-col gap-6">
+            
+            <!-- Tab Navigation Bar -->
+            <div class="bg-slate-950 p-1 rounded-xl border border-slate-850 flex flex-wrap gap-1 shadow-inner">
+                <button onclick="switchTab('planner')" id="tab-planner" class="flex-1 py-3 px-4 rounded-lg text-xs font-extrabold transition-all duration-200 flex items-center justify-center gap-2 min-w-[140px]">
+                    <i class="fa-solid fa-chart-line"></i> Active NextBase Panel
+                </button>
+                <button onclick="switchTab('customizer')" id="tab-customizer" class="flex-1 py-3 px-4 rounded-lg text-xs font-extrabold transition-all duration-200 flex items-center justify-center gap-2 min-w-[140px]">
+                    <i class="fa-solid fa-sliders"></i> Customize Your NextBase
+                </button>
+                <button onclick="switchTab('publish')" id="tab-publish" class="flex-1 py-3 px-4 rounded-lg text-xs font-extrabold transition-all duration-200 flex items-center justify-center gap-2 min-w-[140px]">
+                    <i class="fa-brands fa-github text-emerald-400"></i> Publish to GitHub Pages (Free!)
+                </button>
+            </div>
+
+            <!-- Custom Notification toast container -->
+            <div id="toast" class="hidden fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl bg-slate-950 border border-indigo-500/30 text-xs text-indigo-300 shadow-xl flex items-center gap-2 transition-all">
+                <i class="fa-solid fa-check-circle text-emerald-400"></i>
+                <span id="toast-msg">Text copied successfully</span>
+            </div>
+
+            <!-- TAB 1: PLANNER PANEL -->
+            <div id="view-planner" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- Left Grid: Relocation Details & Commutes -->
+                <div class="lg:col-span-4 flex flex-col gap-6">
+                    
+                    <!-- Overview Card -->
+                    <div class="bg-gradient-to-br from-slate-950 to-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl"></div>
+                        <h2 class="text-[11px] font-bold uppercase tracking-wider text-indigo-400 mb-3 flex items-center gap-1.5">
+                            <i class="fa-solid fa-route"></i> Relocation Course
+                        </h2>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <div class="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Course Trajectory</div>
+                                <div class="text-sm font-extrabold text-white flex items-center gap-2 mt-0.5 animate-pulse">
+                                    <span id="lbl-origin">Origin</span>
+                                    <i class="fa-solid fa-long-arrow-right text-indigo-400 text-xs"></i>
+                                    <span id="lbl-destination">Destination</span>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4 pt-1.5 border-t border-slate-900">
+                                <div>
+                                    <div id="lbl-pcs-title" class="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Departure Date</div>
+                                    <div id="lbl-pcs-date" class="text-xs font-semibold text-slate-300 mt-0.5">N/A</div>
+                                </div>
+                                <div>
+                                    <div class="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Est. Settle Date</div>
+                                    <div id="lbl-settle-date" class="text-xs font-semibold text-indigo-300 mt-0.5">N/A</div>
+                                </div>
+                            </div>
+
+                            <div class="pt-3 border-t border-slate-900 flex items-center justify-between">
+                                <div>
+                                    <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wide block">Monthly Rent Target</span>
+                                    <span id="lbl-rent-cap" class="text-sm font-extrabold text-emerald-400">$0 / mo Max</span>
+                                </div>
+                                <span class="text-[9px] bg-emerald-500/10 border border-emerald-900/30 text-emerald-300 font-bold px-2 py-0.5 rounded-full uppercase">
+                                    Budget Safe
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Duty Commute Selector Card -->
+                    <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                        <h2 class="text-[11px] font-bold uppercase tracking-wider text-indigo-400 mb-3 flex items-center gap-1.5">
+                            <i class="fa-solid fa-car"></i> Work Site Commute Routes
+                        </h2>
+                        <p class="text-[11px] text-slate-400 mb-4">Select a commute path to view dynamic route alignment on the analysis panel.</p>
+                        <div id="commute-buttons-list" class="space-y-2">
+                            <!-- Rendered Commute Routes will sit here -->
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Right Grid: Family & Schooling Matrix -->
+                <div class="lg:col-span-8 flex flex-col gap-6">
+                    
+                    <!-- Dynamic Educational Eligibility Matrix -->
+                    <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                            <div>
+                              <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+                                 <i class="fa-solid fa-graduation-cap text-indigo-400"></i> Children Age & School Eligibility
+                              </h3>
+                              <p class="text-xs text-slate-400">Live grade classification relative to destination station cutoff rules.</p>
+                            </div>
+                            
+                            <!-- Term school Selector -->
+                            <div class="flex items-center gap-2 self-start sm:self-auto bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1">
+                              <label for="select-school-year" class="text-[10px] text-slate-500 font-bold uppercase">School Term:</label>
+                              <select id="select-school-year" onchange="updateSchoolYear(this.value)" class="bg-transparent border-0 text-xs font-semibold text-indigo-300 focus:outline-none cursor-pointer">
+                                <option value="2026">Fall SY 2026-2027</option>
+                                <option value="2027">Fall SY 2027-2028</option>
+                                <option value="2028">Fall SY 2028-2029</option>
+                              </select>
+                            </div>
+                        </div>
+
+                        <div id="children-cards-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Dynamic Children Cards rendered here -->
+                        </div>
+                    </div>
+
+                    <!-- Targeted Education Facilities Profiles -->
+                    <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                        <h3 class="text-base font-extrabold text-white mb-1 flex items-center gap-2">
+                            <i class="fa-solid fa-school text-indigo-400"></i> Destination School Facility Comparison
+                        </h3>
+                        <p class="text-xs text-slate-400 mb-4">Key school options supporting mid-year active duty transfers and transition options.</p>
+                        
+                        <div id="schools-display-list" class="space-y-4">
+                            <!-- Dynamic School options display here -->
+                        </div>
+                    </div>
+
+                    <!-- Selected Route Analysis Display -->
+                    <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                        <h3 class="text-base font-extrabold text-white mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-magnifying-glass-location text-indigo-400"></i> Active Workday Route Analysis
+                        </h3>
+                        <div id="active-commute-details" class="p-4 bg-indigo-950/20 border border-indigo-900/30 rounded-xl space-y-2">
+                            <!-- Dynamic details block here -->
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- TAB 2: INTERACTIVE CUSTOMIZER PANEL -->
+            <div id="view-customizer" class="hidden bg-slate-950 border border-slate-800 rounded-2xl p-5 md:p-6 shadow-xl space-y-6">
+                <div>
+                    <h3 class="text-lg font-extrabold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-indigo-400"></i> NextBase Customizer & Form Forking
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-1">
+                        Fill in the values below to instantly update the map and scheduler dashboard. You can customize the children's birth dates, commute distances, and exact local schools.
+                    </p>
+                </div>
+
+                <!-- Block 1: Base Station Basics -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 border-b border-slate-900 pb-6">
+                    <div>
+                        <label id="lbl-form-origin" class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Origin Base Name</label>
+                        <input type="text" id="inp-origin" oninput="updateField('origin', this.value)" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-slate-100 text-xs focus:border-indigo-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label id="lbl-form-destination" class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Destination Base Name</label>
+                        <input type="text" id="inp-destination" oninput="updateField('destination', this.value)" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-slate-100 text-xs focus:border-indigo-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Rent Target Cap ($/mo)</label>
+                        <input type="number" id="inp-budget" oninput="updateField('budgetCap', parseInt(this.value) || 0)" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-slate-100 text-xs focus:border-indigo-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label id="lbl-form-pcsDate" class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Departure Date</label>
+                        <input type="date" id="inp-pcsDate" oninput="updateField('pcsDate', this.value)" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-slate-100 text-xs focus:border-indigo-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Estimated Settle Date</label>
+                        <input type="date" id="inp-settleDate" oninput="updateField('settleDate', this.value)" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-slate-100 text-xs focus:border-indigo-500 focus:outline-none">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Cutoff Month</label>
+                            <select id="inp-cutoffMonth" onchange="updateField('schoolCutoffMonth', parseInt(this.value))" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 text-xs focus:border-indigo-500 focus:outline-none">
+                                <option value="1">January</option>
+                                <option value="2">February</option>
+                                <option value="3">March</option>
+                                <option value="4">April</option>
+                                <option value="5">May</option>
+                                <option value="6">June</option>
+                                <option value="7">July</option>
+                                <option value="8">August</option>
+                                <option value="9">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Cutoff Day</label>
+                            <input type="number" id="inp-cutoffDay" min="1" max="31" oninput="updateField('schoolCutoffDay', parseInt(this.value) || 1)" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-slate-100 text-xs focus:border-indigo-500 focus:outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Block 2: Interactive Children Profile Editor -->
+                <div class="border-b border-slate-900 pb-6">
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Children Profile Specifications</h4>
+                        <button onclick="addChild()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all">
+                            <i class="fa-solid fa-plus"></i> Add Child Profile
+                        </button>
+                    </div>
+                    <div id="customizer-children-list" class="space-y-3">
+                        <!-- Child edit blocks here -->
+                    </div>
+                </div>
+
+                <!-- Block 3: Interactive Commutes Editor -->
+                <div class="border-b border-slate-900 pb-6">
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Commute Routes Configuration</h4>
+                        <button onclick="addCommute()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all">
+                            <i class="fa-solid fa-plus"></i> Add Commute Route
+                        </button>
+                    </div>
+                    <div id="customizer-commutes-list" class="space-y-3">
+                        <!-- Commute edit blocks here -->
+                    </div>
+                </div>
+
+                <!-- Block 4: Interactive Schools Editor -->
+                <div class="border-b border-slate-900 pb-6">
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Local Schools Options</h4>
+                        <button onclick="addSchool()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all">
+                            <i class="fa-solid fa-plus"></i> Add School Option
+                        </button>
+                    </div>
+                    <div id="customizer-schools-list" class="space-y-3">
+                        <!-- School edit blocks here -->
+                    </div>
+                </div>
+
+                <!-- Action footer block -->
+                <div class="pt-4 flex flex-col sm:flex-row gap-3">
+                    <button onclick="exportConfigJson()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-5 py-3 rounded-xl transition-all shadow flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-file-export"></i> Copy Setup JSON
+                    </button>
+                    <button onclick="switchTab('planner')" class="bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 font-bold text-xs px-5 py-3 rounded-xl transition-all text-center">
+                        View Live Changes on Dashboard ➔
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB 3: PUBLISH TO GITHUB PAGES DIRECTIVE -->
+            <div id="view-publish" class="hidden bg-slate-950 border border-slate-800 rounded-2xl p-5 md:p-6 shadow-xl space-y-6">
+                <div>
+                    <h3 class="text-lg font-extrabold text-emerald-400 flex items-center gap-2">
+                        <i class="fa-brands fa-github"></i> Free Instant Website Deployment (3 Clicks)
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-1">
+                        Follow these simple steps to host NextBase as a living, public website that other families can open directly in their browser without any tech setup.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Step 1 -->
+                    <div class="bg-slate-900/40 border border-slate-850 p-5 rounded-2xl space-y-3">
+                        <div class="h-8 w-8 bg-indigo-600/20 text-indigo-400 font-black flex items-center justify-center rounded-full text-sm border border-indigo-800">1</div>
+                        <h4 class="font-extrabold text-sm text-slate-200">1. Download This Web File</h4>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Right-click anywhere on this website preview page and select <strong>"Save Page As..."</strong>, or download this template code directly and name the file precisely:
+                            <code class="block bg-slate-950 text-emerald-500 p-2 rounded-lg mt-2 font-mono text-[11px] border border-slate-800">index.html</code>
+                        </p>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="bg-slate-900/40 border border-slate-850 p-5 rounded-2xl space-y-3">
+                        <div class="h-8 w-8 bg-indigo-600/20 text-indigo-400 font-black flex items-center justify-center rounded-full text-sm border border-indigo-800">2</div>
+                        <h4 class="font-extrabold text-sm text-slate-200">2. Drag & Drop to GitHub</h4>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Go to <a href="https://github.com" target="_blank" rel="noopener" class="text-indigo-400 underline font-semibold hover:text-indigo-300">GitHub.com</a> (create a free account if you don't have one). Click <strong>New Repository</strong>, name it <code class="bg-slate-950 text-indigo-300 px-1 py-0.5 rounded">nextbase</code>, and check "Public". Drag your <code class="bg-slate-950 text-emerald-400 px-1 py-0.5 rounded">index.html</code> file directly into the browser to upload it!
+                        </p>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="bg-slate-900/40 border border-slate-850 p-5 rounded-2xl space-y-3">
+                        <div class="h-8 w-8 bg-indigo-600/20 text-indigo-400 font-black flex items-center justify-center rounded-full text-sm border border-indigo-800">3</div>
+                        <h4 class="font-extrabold text-sm text-slate-200">3. Activate the Live Link</h4>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            In your new repository, go to <strong>Settings ➔ Pages</strong>. Under "Branch", select <strong>main</strong> (or master), click <strong>Save</strong>. In 30 seconds, your site is live at:
+                            <code class="block bg-slate-950 text-emerald-400 p-2 rounded-lg mt-2 font-mono text-[11px] border border-slate-800 break-all">https://yourusername.github.io/nextbase/</code>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-indigo-950/20 border border-indigo-900/40 rounded-xl space-y-2 text-xs">
+                    <strong class="text-indigo-300 flex items-center gap-1.5"><i class="fa-solid fa-users"></i> How this serves other families:</strong>
+                    <p class="text-slate-300 leading-relaxed">
+                        Once live, any other moving family can visit your link and use the interactive sliders and profile managers to update the NextBase dashboard for *their* specific destination. No coding required—they simply interact with the webpage you hosted!
+                    </p>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Footer Area -->
+        <footer class="border-t border-slate-800 bg-slate-950 py-6 px-4 text-center text-xs text-slate-500 mt-auto">
+            <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div>© 2026 NextBase Open-Source Relocation Assistant. Open to everyone. Built with ♥ by military spouses.</div>
+                <div class="flex gap-4">
+                    <span onclick="resetOnboarding()" class="hover:text-indigo-400 transition-colors cursor-pointer"><i class="fa-solid fa-redo"></i> Setup Wizard</span>
+                    <span>•</span>
+                    <span class="hover:text-indigo-400 transition-colors cursor-pointer">Submit Presets</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- core reactive rendering script -->
+    <script>
+        // Onboarding Navigation
+        function nextStep(stepNumber) {
+            // Validate step inputs briefly
+            if (stepNumber === 2 && !wizardData.destination.trim()) {
+                showToast("Please enter where you are moving next!");
+                return;
+            }
+            if (stepNumber === 4 && !wizardData.origin.trim()) {
+                showToast("Please enter your current location!");
+                return;
+            }
+
+            appState.onboardingStep = stepNumber;
+            renderOnboardingStep();
+        }
+
+        function selectBranch(branchName) {
+            wizardData.branch = branchName;
+            
+            // Highlight chosen button
+            const buttons = document.querySelectorAll(".branch-btn");
+            buttons.forEach(btn => {
+                if (btn.textContent.includes(branchName) || (branchName === 'None' && btn.textContent.includes('Civilian'))) {
+                    btn.classList.add("border-indigo-500", "bg-indigo-950/35", "text-white");
+                    btn.classList.remove("border-slate-800", "bg-slate-950", "text-slate-400");
+                } else {
+                    btn.classList.remove("border-indigo-500", "bg-indigo-950/35", "text-white");
+                    btn.classList.add("border-slate-800", "bg-slate-950", "text-slate-300");
+                }
+            });
+
+            // If branch is None, customize prompt text for next step
+            if (branchName === "None") {
+                document.getElementById("wiz-origin-label").textContent = "Where are you currently moving from?";
+                document.getElementById("wiz-date-label").textContent = "When are you projected to move?";
+            } else {
+                document.getElementById("wiz-origin-label").textContent = "Where are you currently stationed?";
+                document.getElementById("wiz-date-label").textContent = "When are you projected to move (PCS)?";
+            }
+        }
+
+        function renderOnboardingStep() {
+            // Hide all steps
+            for (let i = 1; i <= 4; i++) {
+                document.getElementById(`step-pane-${i}`).classList.add("hidden");
+                document.getElementById(`dot-${i}`).className = "h-1.5 w-10 rounded-full bg-slate-800";
+            }
+
+            // Show active step
+            document.getElementById(`step-pane-${appState.onboardingStep}`).classList.remove("hidden");
+            
+            // Highlight progress dots
+            for (let i = 1; i <= appState.onboardingStep; i++) {
+                document.getElementById(`dot-${i}`).className = "h-1.5 w-10 rounded-full bg-indigo-500";
+            }
+        }
+
+        function finishOnboarding() {
+            if (!wizardData.pcsDate) {
+                showToast("Please select your projected move date!");
+                return;
+            }
+
+            // Copy wizard values to state
+            appState.destination = wizardData.destination;
+            appState.origin = wizardData.origin;
+            appState.pcsDate = wizardData.pcsDate;
+            appState.branch = wizardData.branch;
+
+            // Smart calculate settlement date (approx 2 months later)
+            const dateObj = new Date(appState.pcsDate);
+            dateObj.setMonth(dateObj.getMonth() + 2);
+            appState.settleDate = dateObj.toISOString().split('T')[0];
+
+            // Build dynamic default scenario values based on destination
+            // If they are heading to JBAB / DC, pre-seed JBAB options
+            if (appState.destination.toLowerCase().includes("jbab") || appState.destination.toLowerCase().includes("washington") || appState.destination.toLowerCase().includes("d.c.")) {
+                appState.children = JSON.parse(JSON.stringify(PRESETS.tinker_to_jbab.children));
+                appState.commutes = JSON.parse(JSON.stringify(PRESETS.tinker_to_jbab.commutes));
+                appState.schools = JSON.parse(JSON.stringify(PRESETS.tinker_to_jbab.schools));
+            } else {
+                // Generate general generic options
+                appState.children = [
+                    { id: 1, name: "Your Daughter (Girl)", dob: "2022-01-19", customNote: "Check local cutoff rules." },
+                    { id: 2, name: "Your Son (Boy)", dob: "2023-05-20", customNote: "Check local nursery school requirements." }
+                ];
+                appState.commutes = [
+                    { id: 1, name: "Primary Workplace", distance: "5.2 miles", time: "12 - 15 mins", note: "Standard commuter lanes." },
+                    { id: 2, name: "Secondary Office / Local Hub", distance: "12.4 miles", time: "22 - 30 mins", note: "Alternate highway route." }
+                ];
+                appState.schools = [
+                    { id: 1, name: "Local Zoned Primary School", type: "Public School Option", hours: "8:30 AM - 3:00 PM", notes: "Check boundary zoning map on arrival." },
+                    { id: 2, name: "Community Pre-School Center", type: "Subsidized Early Care", hours: "7:00 AM - 6:00 PM", notes: "Great fallback for dual-career early shifts." }
+                ];
+            }
+
+            appState.selectedCommuteId = appState.commutes[0]?.id || 1;
+            appState.onboardingComplete = true;
+
+            // Transition UI
+            document.getElementById("onboarding-screen").classList.add("hidden");
+            document.getElementById("main-application-dashboard").classList.remove("hidden");
+
+            // Customize form labels for civilians vs military
+            if (appState.branch === "None") {
+                document.getElementById("lbl-pcs-title").textContent = "Projected Move Date";
+                document.getElementById("lbl-form-origin").textContent = "Origin Location";
+                document.getElementById("lbl-form-destination").textContent = "Destination Location";
+                document.getElementById("lbl-form-pcsDate").textContent = "Target Move Date";
+            } else {
+                document.getElementById("lbl-pcs-title").textContent = "PCS Departure Date";
+                document.getElementById("lbl-form-origin").textContent = "Origin Station Name";
+                document.getElementById("lbl-form-destination").textContent = "Destination Station Name";
+                document.getElementById("lbl-form-pcsDate").textContent = "PCS Departure Date";
+            }
+
             syncStateToForm();
             render();
+        }
+
+        function resetOnboarding() {
+            appState.onboardingComplete = false;
+            appState.onboardingStep = 1;
+            document.getElementById("onboarding-screen").classList.remove("hidden");
+            document.getElementById("main-application-dashboard").classList.add("hidden");
+            renderOnboardingStep();
+        }
+
+        // Tab routing switcher
+        function switchTab(tabId) {
+            appState.activeTab = tabId;
+            
+            // Toggle visibility of views
+            document.getElementById("view-planner").classList.add("hidden");
+            document.getElementById("view-customizer").classList.add("hidden");
+            document.getElementById("view-publish").classList.add("hidden");
+            
+            if (tabId === "planner") document.getElementById("view-planner").classList.remove("hidden");
+            if (tabId === "customizer") document.getElementById("view-customizer").classList.remove("hidden");
+            if (tabId === "publish") document.getElementById("view-publish").classList.remove("hidden");
+
+            // Update Tab style states
+            const tabs = ["planner", "customizer", "publish"];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if (t === tabId) {
+                    btn.className = "flex-1 py-3 px-4 rounded-lg text-xs font-extrabold transition-all duration-200 flex items-center justify-center gap-2 min-w-[140px] bg-indigo-600 text-white shadow";
+                } else {
+                    btn.className = "flex-1 py-3 px-4 rounded-lg text-xs font-extrabold transition-all duration-200 flex items-center justify-center gap-2 min-w-[140px] text-slate-400 hover:text-slate-200 hover:bg-slate-900";
+                }
+            });
         }
     </script>
 
@@ -170,370 +776,6 @@
             if (!dateStr) return "N/A";
             const date = new Date(dateStr);
             return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-        }
-    </script>
-
-    <!-- Header Area -->
-    <header class="border-b border-slate-800 bg-slate-950/90 backdrop-blur sticky top-0 z-50 px-4 py-4 md:px-6 shadow-md">
-        <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div class="flex items-center gap-3">
-                <div class="h-10 w-10 bg-gradient-to-tr from-indigo-500 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                    <i class="fa-solid fa-house-chimney text-lg text-white"></i>
-                </div>
-                <div>
-                    <h1 class="text-xl font-extrabold tracking-tight text-white flex items-center gap-2">
-                        NextBase <span class="text-indigo-400 text-xs font-semibold px-2 py-0.5 bg-indigo-950/50 border border-indigo-800/40 rounded-full">Global Relocation & School Planner</span>
-                    </h1>
-                    <p class="text-xs text-slate-400">Built by military spouses. Designed for everyone finding their next base, state, or neighborhood.</p>
-                </div>
-            </div>
-
-            <!-- Preset Selector -->
-            <div class="flex items-center gap-2 bg-slate-900/60 border border-slate-800 p-1 rounded-xl w-fit self-start md:self-auto">
-                <span class="text-[10px] text-slate-500 px-2 font-bold uppercase tracking-wider">PRESETS:</span>
-                <button onclick="loadPreset('tinker_to_jbab')" id="btn-preset-tinker" class="text-xs px-3 py-1.5 rounded-lg transition-all font-semibold">
-                    Tinker ➔ JBAB
-                </button>
-                <button onclick="loadPreset('ramstein_to_sandiego')" id="btn-preset-ramstein" class="text-xs px-3 py-1.5 rounded-lg transition-all font-semibold">
-                    Ramstein ➔ San Diego
-                </button>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Dynamic Workspace -->
-    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 flex flex-col gap-6">
-        
-        <!-- Tab Navigation Bar -->
-        <div class="bg-slate-950 p-1 rounded-xl border border-slate-850 flex flex-wrap gap-1 shadow-inner">
-            <button onclick="switchTab('planner')" id="tab-planner" class="flex-1 py-3 px-4 rounded-lg text-xs font-extrabold transition-all duration-200 flex items-center justify-center gap-2 min-w-[140px]">
-                <i class="fa-solid fa-chart-line"></i> Active NextBase Panel
-            </button>
-            <button onclick="switchTab('customizer')" id="tab-customizer" class="flex-1 py-3 px-4 rounded-lg text-xs font-extrabold transition-all duration-200 flex items-center justify-center gap-2 min-w-[140px]">
-                <i class="fa-solid fa-sliders"></i> Customize Your NextBase
-            </button>
-            <button onclick="switchTab('publish')" id="tab-publish" class="flex-1 py-3 px-4 rounded-lg text-xs font-extrabold transition-all duration-200 flex items-center justify-center gap-2 min-w-[140px]">
-                <i class="fa-brands fa-github text-emerald-400"></i> Publish to GitHub Pages (Free!)
-            </button>
-        </div>
-
-        <!-- Custom Notification toast container -->
-        <div id="toast" class="hidden fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl bg-slate-950 border border-indigo-500/30 text-xs text-indigo-300 shadow-xl flex items-center gap-2 transition-all">
-            <i class="fa-solid fa-check-circle text-emerald-400"></i>
-            <span id="toast-msg">Text copied successfully</span>
-        </div>
-
-        <!-- TAB 1: PLANNER PANEL -->
-        <div id="view-planner" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
-            <!-- Left Grid: Relocation Details & Commutes -->
-            <div class="lg:col-span-4 flex flex-col gap-6">
-                
-                <!-- Overview Card -->
-                <div class="bg-gradient-to-br from-slate-950 to-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
-                    <div class="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl"></div>
-                    <h2 class="text-[11px] font-bold uppercase tracking-wider text-indigo-400 mb-3 flex items-center gap-1.5">
-                        <i class="fa-solid fa-route"></i> Relocation Course
-                    </h2>
-                    
-                    <div class="space-y-4">
-                        <div>
-                            <div class="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Course Trajectory</div>
-                            <div class="text-sm font-extrabold text-white flex items-center gap-2 mt-0.5">
-                                <span id="lbl-origin">Tinker AFB</span>
-                                <i class="fa-solid fa-long-arrow-right text-indigo-400 text-xs"></i>
-                                <span id="lbl-destination">JBAB</span>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4 pt-1.5 border-t border-slate-900">
-                            <div>
-                                <div class="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Departure Date</div>
-                                <div id="lbl-pcs-date" class="text-xs font-semibold text-slate-300 mt-0.5">N/A</div>
-                            </div>
-                            <div>
-                                <div class="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Est. Settle Date</div>
-                                <div id="lbl-settle-date" class="text-xs font-semibold text-indigo-300 mt-0.5">N/A</div>
-                            </div>
-                        </div>
-
-                        <div class="pt-3 border-t border-slate-900 flex items-center justify-between">
-                            <div>
-                                <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wide block">Monthly Rent Target</span>
-                                <span id="lbl-rent-cap" class="text-sm font-extrabold text-emerald-400">$0 / mo Max</span>
-                            </div>
-                            <span class="text-[9px] bg-emerald-500/10 border border-emerald-900/30 text-emerald-300 font-bold px-2 py-0.5 rounded-full uppercase">
-                                Budget Safe
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Duty Commute Selector Card -->
-                <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl">
-                    <h2 class="text-[11px] font-bold uppercase tracking-wider text-indigo-400 mb-3 flex items-center gap-1.5">
-                        <i class="fa-solid fa-car"></i> Work Site Commute Routes
-                    </h2>
-                    <p class="text-[11px] text-slate-400 mb-4">Select a commute path to view dynamic route alignment on the analysis panel.</p>
-                    <div id="commute-buttons-list" class="space-y-2">
-                        <!-- Rendered Commute Routes will sit here -->
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- Right Grid: Family & Schooling Matrix -->
-            <div class="lg:col-span-8 flex flex-col gap-6">
-                
-                <!-- Dynamic Educational Eligibility Matrix -->
-                <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                        <div>
-                          <h3 class="text-base font-extrabold text-white flex items-center gap-2">
-                             <i class="fa-solid fa-graduation-cap text-indigo-400"></i> Children Age & School Eligibility
-                          </h3>
-                          <p class="text-xs text-slate-400">Live grade classification relative to destination station cutoff rules.</p>
-                        </div>
-                        
-                        <!-- Term school Selector -->
-                        <div class="flex items-center gap-2 self-start sm:self-auto bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1">
-                          <label for="select-school-year" class="text-[10px] text-slate-500 font-bold uppercase">School Term:</label>
-                          <select id="select-school-year" onchange="updateSchoolYear(this.value)" class="bg-transparent border-0 text-xs font-semibold text-indigo-300 focus:outline-none cursor-pointer">
-                            <option value="2026">Fall SY 2026-2027</option>
-                            <option value="2027">Fall SY 2027-2028</option>
-                            <option value="2028">Fall SY 2028-2029</option>
-                          </select>
-                        </div>
-                    </div>
-
-                    <div id="children-cards-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- Dynamic Children Cards rendered here -->
-                    </div>
-                </div>
-
-                <!-- Targeted Education Facilities Profiles -->
-                <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                    <h3 class="text-base font-extrabold text-white mb-1 flex items-center gap-2">
-                        <i class="fa-solid fa-school text-indigo-400"></i> Destination School Facility Comparison
-                    </h3>
-                    <p class="text-xs text-slate-400 mb-4">Key school options supporting mid-year active duty transfers and transition options.</p>
-                    
-                    <div id="schools-display-list" class="space-y-4">
-                        <!-- Dynamic School options display here -->
-                    </div>
-                </div>
-
-                <!-- Selected Route Analysis Display -->
-                <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                    <h3 class="text-base font-extrabold text-white mb-2 flex items-center gap-2">
-                        <i class="fa-solid fa-magnifying-glass-location text-indigo-400"></i> Active Workday Route Analysis
-                    </h3>
-                    <div id="active-commute-details" class="p-4 bg-indigo-950/20 border border-indigo-900/30 rounded-xl space-y-2">
-                        <!-- Dynamic details block here -->
-                    </div>
-                </div>
-
-            </div>
-
-        </div>
-
-        <!-- TAB 2: INTERACTIVE CUSTOMIZER PANEL -->
-        <div id="view-customizer" class="hidden bg-slate-950 border border-slate-800 rounded-2xl p-5 md:p-6 shadow-xl space-y-6">
-            <div>
-                <h3 class="text-lg font-extrabold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-sliders text-indigo-400"></i> NextBase Customizer & Form Forking
-                </h3>
-                <p class="text-xs text-slate-400 mt-1">
-                    Fill in the values below to instantly update the map and scheduler dashboard. You can customize the children's birth dates, commute distances, and exact local schools.
-                </p>
-            </div>
-
-            <!-- Block 1: Base Station Basics -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 border-b border-slate-900 pb-6">
-                <div>
-                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Origin Base Name</label>
-                    <input type="text" id="inp-origin" oninput="updateField('origin', this.value)" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-slate-100 text-xs focus:border-indigo-500 focus:outline-none">
-                </div>
-                <div>
-                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Destination Base Name</label>
-                    <input type="text" id="inp-destination" oninput="updateField('destination', this.value)" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-slate-100 text-xs focus:border-indigo-500 focus:outline-none">
-                </div>
-                <div>
-                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Rent Target Cap ($/mo)</label>
-                    <input type="number" id="inp-budget" oninput="updateField('budgetCap', parseInt(this.value) || 0)" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-slate-100 text-xs focus:border-indigo-500 focus:outline-none">
-                </div>
-                <div>
-                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Departure Date</label>
-                    <input type="date" id="inp-pcsDate" oninput="updateField('pcsDate', this.value)" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-slate-100 text-xs focus:border-indigo-500 focus:outline-none">
-                </div>
-                <div>
-                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Estimated Settle Date</label>
-                    <input type="date" id="inp-settleDate" oninput="updateField('settleDate', this.value)" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-slate-100 text-xs focus:border-indigo-500 focus:outline-none">
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Cutoff Month</label>
-                        <select id="inp-cutoffMonth" onchange="updateField('schoolCutoffMonth', parseInt(this.value))" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 text-xs focus:border-indigo-500 focus:outline-none">
-                            <option value="1">January</option>
-                            <option value="2">February</option>
-                            <option value="3">March</option>
-                            <option value="4">April</option>
-                            <option value="5">May</option>
-                            <option value="6">June</option>
-                            <option value="7">July</option>
-                            <option value="8">August</option>
-                            <option value="9">September</option>
-                            <option value="10">October</option>
-                            <option value="11">November</option>
-                            <option value="12">December</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Cutoff Day</label>
-                        <input type="number" id="inp-cutoffDay" min="1" max="31" oninput="updateField('schoolCutoffDay', parseInt(this.value) || 1)" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-slate-100 text-xs focus:border-indigo-500 focus:outline-none">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Block 2: Interactive Children Profile Editor -->
-            <div class="border-b border-slate-900 pb-6">
-                <div class="flex justify-between items-center mb-3">
-                    <h4 class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Children Profile Specifications</h4>
-                    <button onclick="addChild()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all">
-                        <i class="fa-solid fa-plus"></i> Add Child Profile
-                    </button>
-                </div>
-                <div id="customizer-children-list" class="space-y-3">
-                    <!-- Child edit blocks here -->
-                </div>
-            </div>
-
-            <!-- Block 3: Interactive Commutes Editor -->
-            <div class="border-b border-slate-900 pb-6">
-                <div class="flex justify-between items-center mb-3">
-                    <h4 class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Commute Routes Configuration</h4>
-                    <button onclick="addCommute()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all">
-                        <i class="fa-solid fa-plus"></i> Add Commute Route
-                    </button>
-                </div>
-                <div id="customizer-commutes-list" class="space-y-3">
-                    <!-- Commute edit blocks here -->
-                </div>
-            </div>
-
-            <!-- Block 4: Interactive Schools Editor -->
-            <div class="border-b border-slate-900 pb-6">
-                <div class="flex justify-between items-center mb-3">
-                    <h4 class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Local Schools Options</h4>
-                    <button onclick="addSchool()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all">
-                        <i class="fa-solid fa-plus"></i> Add School Option
-                    </button>
-                </div>
-                <div id="customizer-schools-list" class="space-y-3">
-                    <!-- School edit blocks here -->
-                </div>
-            </div>
-
-            <!-- Action footer block -->
-            <div class="pt-4 flex flex-col sm:flex-row gap-3">
-                <button onclick="exportConfigJson()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-5 py-3 rounded-xl transition-all shadow flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-file-export"></i> Copy Setup JSON
-                </button>
-                <button onclick="switchTab('planner')" class="bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 font-bold text-xs px-5 py-3 rounded-xl transition-all text-center">
-                    View Live Changes on Dashboard ➔
-                </button>
-            </div>
-        </div>
-
-        <!-- TAB 3: PUBLISH TO GITHUB PAGES DIRECTIVE -->
-        <div id="view-publish" class="hidden bg-slate-950 border border-slate-800 rounded-2xl p-5 md:p-6 shadow-xl space-y-6">
-            <div>
-                <h3 class="text-lg font-extrabold text-emerald-400 flex items-center gap-2">
-                    <i class="fa-brands fa-github"></i> Free Instant Website Deployment (3 Clicks)
-                </h3>
-                <p class="text-xs text-slate-400 mt-1">
-                    Follow these simple steps to host NextBase as a living, public website that other families can open directly in their browser without any tech setup.
-                </p>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Step 1 -->
-                <div class="bg-slate-900/40 border border-slate-850 p-5 rounded-2xl space-y-3">
-                    <div class="h-8 w-8 bg-indigo-600/20 text-indigo-400 font-black flex items-center justify-center rounded-full text-sm border border-indigo-800">1</div>
-                    <h4 class="font-extrabold text-sm text-slate-200">1. Download This Web File</h4>
-                    <p class="text-xs text-slate-400 leading-relaxed">
-                        Right-click anywhere on this website preview page and select <strong>"Save Page As..."</strong>, or download this template code directly and name the file precisely:
-                        <code class="block bg-slate-950 text-emerald-500 p-2 rounded-lg mt-2 font-mono text-[11px] border border-slate-800">index.html</code>
-                    </p>
-                </div>
-
-                <!-- Step 2 -->
-                <div class="bg-slate-900/40 border border-slate-850 p-5 rounded-2xl space-y-3">
-                    <div class="h-8 w-8 bg-indigo-600/20 text-indigo-400 font-black flex items-center justify-center rounded-full text-sm border border-indigo-800">2</div>
-                    <h4 class="font-extrabold text-sm text-slate-200">2. Drag & Drop to GitHub</h4>
-                    <p class="text-xs text-slate-400 leading-relaxed">
-                        Go to <a href="https://github.com" target="_blank" rel="noopener" class="text-indigo-400 underline font-semibold hover:text-indigo-300">GitHub.com</a> (create a free account if you don't have one). Click <strong>New Repository</strong>, name it <code class="bg-slate-950 text-indigo-300 px-1 py-0.5 rounded">nextbase</code>, and check "Public". Drag your <code class="bg-slate-950 text-emerald-400 px-1 py-0.5 rounded">index.html</code> file directly into the browser to upload it!
-                    </p>
-                </div>
-
-                <!-- Step 3 -->
-                <div class="bg-slate-900/40 border border-slate-850 p-5 rounded-2xl space-y-3">
-                    <div class="h-8 w-8 bg-indigo-600/20 text-indigo-400 font-black flex items-center justify-center rounded-full text-sm border border-indigo-800">3</div>
-                    <h4 class="font-extrabold text-sm text-slate-200">3. Activate the Live Link</h4>
-                    <p class="text-xs text-slate-400 leading-relaxed">
-                        In your new repository, go to <strong>Settings ➔ Pages</strong>. Under "Branch", select <strong>main</strong> (or master), click <strong>Save</strong>. In 30 seconds, your site is live at:
-                        <code class="block bg-slate-950 text-emerald-400 p-2 rounded-lg mt-2 font-mono text-[11px] border border-slate-800 break-all">https://yourusername.github.io/nextbase/</code>
-                    </p>
-                </div>
-            </div>
-
-            <div class="p-4 bg-indigo-950/20 border border-indigo-900/40 rounded-xl space-y-2 text-xs">
-                <strong class="text-indigo-300 flex items-center gap-1.5"><i class="fa-solid fa-users"></i> How this serves other families:</strong>
-                <p class="text-slate-300 leading-relaxed">
-                    Once live, any other moving family can visit your link and use the interactive sliders and profile managers to update the NextBase dashboard for *their* specific destination. No coding required—they simply interact with the webpage you hosted!
-                </p>
-            </div>
-        </div>
-
-    </main>
-
-    <!-- Footer Area -->
-    <footer class="border-t border-slate-800 bg-slate-950 py-6 px-4 text-center text-xs text-slate-500 mt-auto">
-        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div>© 2026 NextBase Open-Source Relocation Assistant. Open to everyone. Built with ♥ by military spouses.</div>
-            <div class="flex gap-4">
-                <span class="hover:text-indigo-400 transition-colors cursor-pointer">Fork Repo</span>
-                <span>•</span>
-                <span class="hover:text-indigo-400 transition-colors cursor-pointer">Submit Presets</span>
-            </div>
-        </div>
-    </footer>
-
-    <!-- core reactive rendering script -->
-    <script>
-        // Tab routing switcher
-        function switchTab(tabId) {
-            appState.activeTab = tabId;
-            
-            // Toggle visibility of views
-            document.getElementById("view-planner").classList.add("hidden");
-            document.getElementById("view-customizer").classList.add("hidden");
-            document.getElementById("view-publish").classList.add("hidden");
-            
-            if (tabId === "planner") document.getElementById("view-planner").classList.remove("hidden");
-            if (tabId === "customizer") document.getElementById("view-customizer").classList.remove("hidden");
-            if (tabId === "publish") document.getElementById("view-publish").classList.remove("hidden");
-
-            // Update Tab style states
-            const tabs = ["planner", "customizer", "publish"];
-            tabs.forEach(t => {
-                const btn = document.getElementById(`tab-${t}`);
-                if (t === tabId) {
-                    btn.className = "flex-1 py-3 px-4 rounded-lg text-xs font-extrabold transition-all duration-200 flex items-center justify-center gap-2 min-w-[140px] bg-indigo-600 text-white shadow";
-                } else {
-                    btn.className = "flex-1 py-3 px-4 rounded-lg text-xs font-extrabold transition-all duration-200 flex items-center justify-center gap-2 min-w-[140px] text-slate-400 hover:text-slate-200 hover:bg-slate-900";
-                }
-            });
         }
 
         // Field value modifications
@@ -728,15 +970,24 @@
 
         // Master NextBase UI Render Loop
         function render() {
-            // Header Button styling
-            const tinkerBtn = document.getElementById("btn-preset-tinker");
-            const ramsteinBtn = document.getElementById("btn-preset-ramstein");
-            if (appState.selectedPreset === "tinker_to_jbab") {
-                tinkerBtn.className = "text-xs px-3 py-1.5 rounded-lg transition-all font-semibold bg-indigo-600 text-white shadow";
-                ramsteinBtn.className = "text-xs px-3 py-1.5 rounded-lg transition-all font-semibold text-slate-400 hover:text-slate-200";
+            // Header Affiliation Badge Rendering
+            const affiliationLbl = document.getElementById("header-affiliation-lbl");
+            const branchIcon = document.getElementById("header-branch-icon");
+            affiliationLbl.textContent = `Affiliation: ${appState.branch}`;
+            
+            // Branch icon configurations
+            if (appState.branch === "Navy" || appState.branch === "Coast Guard") {
+                branchIcon.innerHTML = `<i class="fa-solid fa-anchor text-blue-400"></i>`;
+            } else if (appState.branch === "Air Force") {
+                branchIcon.innerHTML = `<i class="fa-solid fa-plane text-sky-400"></i>`;
+            } else if (appState.branch === "Army") {
+                branchIcon.innerHTML = `<i class="fa-solid fa-person-military-pointing text-emerald-400"></i>`;
+            } else if (appState.branch === "Marine Corps") {
+                branchIcon.innerHTML = `<i class="fa-solid fa-bullseye text-red-400"></i>`;
+            } else if (appState.branch === "Space Force") {
+                branchIcon.innerHTML = `<i class="fa-solid fa-user-astronaut text-purple-400"></i>`;
             } else {
-                ramsteinBtn.className = "text-xs px-3 py-1.5 rounded-lg transition-all font-semibold bg-indigo-600 text-white shadow";
-                tinkerBtn.className = "text-xs px-3 py-1.5 rounded-lg transition-all font-semibold text-slate-400 hover:text-slate-200";
+                branchIcon.innerHTML = `<i class="fa-solid fa-house-user text-amber-400"></i>`;
             }
 
             // Sync overview cards
@@ -846,11 +1097,6 @@
         function selectCommute(id) {
             appState.selectedCommuteId = id;
             render();
-        }
-
-        // Start App
-        window.onload = function() {
-            loadPreset("tinker_to_jbab");
         }
     </script>
 </body>
