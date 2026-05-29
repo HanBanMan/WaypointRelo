@@ -330,14 +330,14 @@ export default function App() {
       <header className="border-b border-slate-800 bg-slate-950/90 backdrop-blur sticky top-0 z-50 px-6 py-4 shadow-md">
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 bg-gradient-to-tr from-indigo-500 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg">
+            <div className="h-10 w-10 bg-gradient-to-tr from-amber-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-amber-500/20">
               <span className="text-xl">🏠</span>
             </div>
             <div>
-              <h1 className="text-xl font-extrabold tracking-tight text-white flex items-center gap-2">
-                NextBase <span className="text-indigo-400 text-sm font-medium px-2 py-0.5 bg-indigo-950/50 border border-indigo-800/40 rounded-full">Global Relocation Planner</span>
+              <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                ToMoveTo <span className="text-amber-400 text-sm font-medium px-2 py-0.5 bg-amber-950/50 border border-amber-800/40 rounded-full">Global Relocation Planner</span>
               </h1>
-              <p className="text-xs text-slate-400">Collaborative Educational & Commute Planner • For any move on Earth</p>
+              <p className="text-xs text-slate-400">Collaborative Educational & Commute Planner • Warm & Supportive Onboarding</p>
             </div>
           </div>
 
@@ -364,7 +364,7 @@ export default function App() {
               activeTab === 'planner' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
             }`}
           >
-            📋 Active NextBase Panel
+            📋 Active ToMoveTo Panel
           </button>
           <button
             onClick={() => setActiveTab('customizer')}
@@ -372,7 +372,7 @@ export default function App() {
               activeTab === 'customizer' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
             }`}
           >
-            ⚙️ Customize NextBase (Fork Config)
+            ⚙️ Customize ToMoveTo (Fork Config)
           </button>
         </div>
 
@@ -571,8 +571,8 @@ export default function App() {
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
             <div>
               <h3 className="text-lg font-extrabold text-white flex items-center gap-2">
-                <span>⚙️ NextBase Customizer</span>
-                <span className="text-xs bg-indigo-950 text-indigo-300 border border-indigo-800 px-2.5 py-0.5 rounded">Real-time updates</span>
+                <span>⚙️ ToMoveTo Customizer</span>
+                <span className="text-xs bg-amber-950 text-amber-300 border border-amber-800 px-2.5 py-0.5 rounded">Real-time updates</span>
               </h3>
               <p className="text-xs text-slate-400 mt-1">
                 Customize every value, base, child, commute route, and school profile. Once updated, you can generate the JSON file configuration for your open-source repository.
@@ -869,7 +869,7 @@ export default function App() {
 
       <footer className="border-t border-slate-800 bg-slate-950 py-6 px-6 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-          <div>© 2026 NextBase Open-Source Relocation Blueprint. Built for families everywhere.</div>
+          <div>© 2026 ToMoveTo Open-Source Relocation Blueprint. Built for families everywhere.</div>
           <div className="flex gap-4">
             <span onClick={() => { setOnboardingStep(1); setOnboardingComplete(false); }} className="hover:text-indigo-400 transition-colors cursor-pointer">Setup Wizard</span>
             <span>•</span>
